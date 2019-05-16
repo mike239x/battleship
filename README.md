@@ -5,6 +5,12 @@ A framework for battleship game.
 Clone the repo and start using it.
 If you use poetry you can also run `poetry install`.
 
+### Sanity check
+`$ python -c "import battleship"`
+
+# Tests
+You can run tests with pytest: run `$ pytest` in the main directory of the repo.
+
 # Game rules
 See [wiki page](https://en.wikipedia.org/wiki/Battleship_(game)).
 The board size is 10 by 10, the ships to be placed are:
