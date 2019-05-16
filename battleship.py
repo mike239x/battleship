@@ -18,11 +18,13 @@ SHIP_SIZES = [5,4,4,3,3,3,2,2,2,2]
 # (the top-left corner of the field has coords (0,0))
 # and HOR and a boolean indicating if the ship of positioned horizontally or not
 #
-# returns a tuple with success flag and
-# numpy array with 0s for empty cells and 1s for ship parts
+# returns a tuple (success, field) with success flag and
+# numpy array with 0s for empty cells and non-zeros for other ships
+# where `field == k` is the k-th ship
 def place_ships(ships):
     re = np.zeros(FIELD_SIZE, dtype = np.uint8)
     success = True
+    k = 1
     for i in range(len(SHIP_SIZES)):
         ship_tiles = np.zeros(FIELD_SIZE)
         x = ships[i][0][0]
@@ -44,7 +46,8 @@ def place_ships(ships):
         if not all(re[surround_tiles == 1] == 0):
             success = False
             break
-        re[ship_tiles == 1] = 1
+        re[ship_tiles == 1] = k
+        k += 1
     return (success, re)
 
 class Client:
