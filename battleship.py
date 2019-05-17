@@ -51,7 +51,8 @@ def place_ships(ships):
     return (success, re)
 
 class ActionResult(Enum):
-    ILLEGAL = -1
+    ILLEGAL_MOVE = -2
+    REPEATING_MOVE = -1
     MISS = 0
     HIT = 1
     SUNK = 2
@@ -62,7 +63,9 @@ class ActionResult(Enum):
 def probe(pos, probed, field):
     x,y = pos
     if x < 0 or x >= FIELD_SIZE[0] or y < 0 or y >= FIELD_SIZE[1]:
-        return ActionResult.ILLEGAL
+        return ActionResult.ILLEGAL_MOVE
+    if probed[y][x]:
+        return ActionResult.REPEATING_MOVE
     ship_id = field[y][x]
     probed[y][x] = True
     if ship_id == 0:
