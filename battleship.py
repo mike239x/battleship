@@ -75,30 +75,81 @@ def probe(pos, probed, field):
     else:
         return ActionResult.HIT
 
-class Client:
-    # a class to represent a player state
-    # `probed` keeps track of the squares which the players probes in his turns
-    # while `field` has all the ships
-    class Player:
-        def __init__(self):
-            self.probed = np.zeros(FIELD_SIZE, dtype=np.bool)
-            self.field = bp.zeros(FIELD_SIZE)
+# a class to represent a player state
+# `probed` keeps track of the squares which the players probes in his turns
+# while `field` has all the ships
+class Player:
     def __init__(self):
-        pass
+        self.probed = np.zeros(FIELD_SIZE, dtype=np.bool)
+        self.field = np.zeros(FIELD_SIZE)
+
+class Client:
+    def __init__(self, agent):
+        self.agent = agent
+        # TODO idea: make a hard check on init that agent would place ships properly, if not - break immediately
     def start(self):
+        self.field = agent.place_ships()
+        # TODO send the ship placement to the server
         while True:
-            pass
+            # TODO get a msg from the server
+            ...
+            my_turn = True
+            if my_turn:
+                # TODO timeouts?
+                # TODO ask the agent for a turn
+                ...
+                # TODO send the info to the server
+                ...
 
 class Server:
-    def __init__(self):
-        pass
+    def __init__(self, allow_illegal_moves = False, allow_repeating_moves = False):
+        self.players = (Player(), Player())
+        self.allow_illegal_moves = allow_illegal_moves
+        self.allow_repeating_moves = allow_repeating_moves
     def start(self):
-        pass
+        # TODO get both players connected and get their ships dispositions
+        ...
+        # main game loop:
+        cur = 0 # id of the active player
+        while True:
+            # TODO get a move from a current player and store it in (x,y)
+            pos = (0,0)
+            x,y = pos
+            re = probe(pos, self.players[cur].probed, self.players[1-cur].field)
+            if re == ActionResult.ILLEGAL_MOVE:
+                if allow_illegal_moves:
+                    cur = 1 - cur
+                else:
+                    # TODO kill the active player
+                    ...
+            elif re == ActionResult.REPEATING_MOVE:
+                if allow_repeating_moves:
+                    cur = 1 - cur
+                else:
+                    # TODO kill the active player
+                    ...
+            elif re == ActionResult.MISS:
+                self.players[cur].probed[y][x] = True
+                cur = 1 - cur
+            elif re == ActionResult.HIT:
+                self.players[cur].probed[y][x] = True
+            elif re == ActionResult.SUNK:
+                self.players[cur].probed[y][x] = True
+                if all(self.players[cur].probed[self.players[1-cur].field > 0]):
+                    # TODO active player won
+                    ...
+            # TODO broadcast updates
+            ...
+        # end of the main game loop
+        # TODO gracefully shutdown? or keep going?
 
 class Agent:
     # init the board and do whatever else you want to do at the start
     def init():
         pass
+    # place your ships
+    def place_ships():
+        return [((0,0), False) * 10]
     # chose your next move given the current state
     def make_a_move():
         pass
