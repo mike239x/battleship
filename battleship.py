@@ -4,7 +4,7 @@ import multiprocessing
 import time
 import zmq
 import numpy as np
-from enum import Enum, auto
+from enum import Enum
 
 from scipy.ndimage.morphology import binary_dilation
 
@@ -50,25 +50,49 @@ def place_ships(ships):
         k += 1
     return (success, re)
 
+class ActionResult(Enum):
+    ILLEGAL = -1
+    MISS = 0
+    HIT = 1
+    SUNK = 2
+
+# probes a position `pos` of the opponent's `field`.
+# previous probed positions are provided in by `probed`.
+# returns ActionResult
+def probe(pos, probed, field):
+    x,y = pos
+    if x < 0 or x >= FIELD_SIZE[0] or y < 0 or y >= FIELD_SIZE[1]:
+        return ActionResult.ILLEGAL
+    ship_id = field[y][x]
+    probed[y][x] = True
+    if ship_id == 0:
+        return ActionResult.MISS
+    if all(probed[field == ship_id]):
+        return ActionResult.SUNK
+    else:
+        return ActionResult.HIT
+
 class Client:
+    # a class to represent a player state
+    # `probed` keeps track of the squares which the players probes in his turns
+    # while `field` has all the ships
+    class Player:
+        def __init__(self):
+            self.probed = np.zeros(FIELD_SIZE, dtype=np.bool)
+            self.field = bp.zeros(FIELD_SIZE)
     def __init__(self):
         pass
-    def start():
-        pass
+    def start(self):
+        while True:
+            pass
 
 class Server:
     def __init__(self):
         pass
-    def start():
+    def start(self):
         pass
 
-class World:
-    def __init__(self):
-        n = 10
-        self.my_board = np.zeros((n,n))
-        self.opponent_board = np.zeros((n,n))
-
-class Player:
+class Agent:
     # init the board and do whatever else you want to do at the start
     def init():
         pass
