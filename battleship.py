@@ -12,6 +12,21 @@ from scipy.ndimage.morphology import binary_dilation
 FIELD_SIZE = (10,10) # width, height
 SHIP_SIZES = [5,4,4,3,3,3,2,2,2,2]
 
+class ActionResult(Enum):
+    ILLEGAL_MOVE = -2
+    REPEATING_MOVE = -1
+    MISS = 0
+    HIT = 1
+    SUNK = 2
+
+class Msg(Enum):
+    CONFIRMED = b'Okay'
+    YOU_WON = b'You won'
+    YOU_LOST = b'You lost'
+    YOUR_TURN = b'Your turn'
+
+######################################################################################################################
+
 # place the ships on the battlefield
 #
 # input: list in form [((x,y), HOR), ...]
@@ -51,15 +66,6 @@ def place_ships(ships):
         k += 1
     return (success, re)
 
-class ActionResult(Enum):
-    ILLEGAL_MOVE = -2
-    REPEATING_MOVE = -1
-    MISS = 0
-    HIT = 1
-    SUNK = 2
-
-CONFIRMED = b'Okay'
-
 # probes a position `pos` of the opponent's `field`.
 # previous probed positions are provided in by `probed`.
 # returns ActionResult
@@ -86,23 +92,49 @@ class Player:
         self.probed = np.zeros(FIELD_SIZE, dtype=np.bool)
         self.field = np.zeros(FIELD_SIZE)
 
+######################################################################################################################
+
 class Client:
     def __init__(self, agent):
         self.agent = agent
         # TODO idea: make a hard check on init that agent would place ships properly, if not - break immediately
-    def start(self):
         self.field = agent.place_ships()
         # TODO send the ship placement to the server
+
+    def start(self):
+        #TODO do something with ports
+        port = "tcp://127.0.0.1:5555"
+        self.socket = context.socket(zmq.PAIR)
+        self.socket.connect(port)
+        self.force_stop()
+        self.process = Process(target = self.run, args = ())
+        self.process.start()
+
+    def force_stop(self):
+        if self.process != None:
+            self.process.terminate()
+
+    def run(self):
+        # main game loop:
         while True:
             # TODO get a msg from the server
-            ...
-            my_turn = True
-            if my_turn:
-                # TODO timeouts?
-                # TODO ask the agent for a turn
-                ...
-                # TODO send the info to the server
-                ...
+            msg = self.socket.recv()
+            if msg == Msg.YOUR_TURN:
+                # TODO spawn a separate process for that?
+                pos = self.agent.make_a_move()
+                data = pickle.dumps(pos)
+                self.socket.send(data)
+                msg = self.socket.recv()
+                data = pickle.loads(msg)
+                # TODO inform agent about the result
+                self.socket.send(Msg.CONFIRMED)
+            elif msg == Msg.YOU_LOST:
+                self.socket.send(Msg.CONFIRMED)
+            elif msg == Msg.YOU_WON:
+                self.socket.send(Msg.CONFIRMED)
+        # end of the main game loop
+
+######################################################################################################################
 
 class Server:
     def __init__(self, allow_illegal_moves = False, allow_repeating_moves = False):
@@ -123,11 +155,13 @@ class Server:
         sock = context.socket(zmq.PAIR)
         sock.bind(port2)
         self.sockets.append(sock)
+        self.force_stop()
         self.process = Process(target = self.run, args = ())
         self.process.start()
 
     def force_stop(self):
-        self.process.terminate()
+        if self.process != None:
+            self.process.terminate()
 
     def announce_winner(self, winner):
         # write to the winner
@@ -141,10 +175,10 @@ class Server:
         msg = self.sockets[1-winner].recv()
         assert(msg == CONFIRMED)
 
-    # main game loop:
     def run(self):
         cur = 0 # id of the active player
         finished = False
+        # main game loop:
         while not finished:
             # ask the active player for a move:
             self.sockets[cur].send_string("Your turn")
@@ -183,13 +217,19 @@ class Server:
             # TODO broadcast updates into outer space?
         # end of the main game loop
 
+######################################################################################################################
+
+# a template for an agent class
 class Agent:
-    # init the board and do whatever else you want to do at the start
-    def init():
-        pass
-    # place your ships
-    def place_ships():
-        return [((0,0), False) * 10]
-    # chose your next move given the current state
-    def make_a_move():
-        pass
+    # generate a ship placement
+    def place_ships(self):
+        raise NotImplementedError
+    # make a move:
+    def make_a_move(self):
+        raise NotImplementedError
+        # TODO: mb use this madness?
+        # while True:
+            # pos = (0,0)
+            # response = yield pos
+            # TODO
+
