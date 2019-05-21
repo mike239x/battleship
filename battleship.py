@@ -6,7 +6,6 @@ import time
 import zmq
 import numpy as np
 from enum import Enum
-
 from scipy.ndimage.morphology import binary_dilation
 
 FIELD_SIZE = (10,10) # width, height
@@ -25,17 +24,16 @@ class Msg(Enum):
 
 ######################################################################################################################
 
-# place the ships on the battlefield
-#
-# input: list in form [((x,y), HOR), ...]
-# where (x,y) is the position of the top-left corner of the ship
-# (the top-left corner of the field has coords (0,0))
-# and HOR and a boolean indicating if the ship of positioned horizontally or not
-#
-# returns a tuple (success, field) with success flag and
-# numpy array with 0s for empty cells and non-zeros for other ships
-# where `field == k` is the k-th ship
 def place_ships(ships):
+    '''place the ships on the battlefield
+    input: list in form [((x,y), HOR), ...]
+    where (x,y) is the position of the top-left corner of the ship
+    (the top-left corner of the field has coords (0,0))
+    and HOR and a boolean indicating if the ship of positioned horizontally or not
+    return: a tuple (success, field) with success flag and
+    numpy array with 0s for empty cells and non-zeros for other ships
+    where `field == k` is the k-th ship
+    '''
     re = np.zeros(FIELD_SIZE, dtype = np.uint8)
     success = True
     k = 1
@@ -64,10 +62,11 @@ def place_ships(ships):
         k += 1
     return (success, re)
 
-# probes a position `pos` of the opponent's `field`.
-# previous probed positions are provided in by `probed`.
-# returns one of: ILLEGAL_MOVE, REPEATING_MOVE, MISS, HIT, SUNK
 def probe(pos, probed, field):
+    '''probes a position `pos` of the opponent's `field`.
+    previous probed positions are provided in by `probed`.
+    returns a message: ILLEGAL_MOVE, REPEATING_MOVE, MISS, HIT or SUNK
+    '''
     x,y = pos
     if x < 0 or x >= FIELD_SIZE[0] or y < 0 or y >= FIELD_SIZE[1]:
         return Msg.ILLEGAL_MOVE
@@ -82,10 +81,13 @@ def probe(pos, probed, field):
     else:
         return Msg.HIT
 
-# a class to represent a player state
-# `probed` keeps track of the squares which the players probes in his turns
-# while `field` has all the ships
+######################################################################################################################
+
 class Player:
+    '''a class to represent a player state
+    `probed` keeps track of the squares which the players probes in his turns
+    while `field` has all the ships
+    '''
     def __init__(self):
         self.probed = np.zeros(FIELD_SIZE, dtype=np.bool)
         self.field = np.zeros(FIELD_SIZE)
@@ -96,8 +98,10 @@ class Client:
     def __init__(self, agent):
         self.agent = agent
         # TODO idea: make a hard check on init that agent would place ships properly, if not - break immediately
-        self.field = agent.place_ships()
-        # TODO send the ship placement to the server
+        self.ships = agent.place_ships()
+        self.field = place_ships(self.ships)
+        assert(self.field[0]) # success
+        self.field = self.field[1]
 
     def start(self):
         #TODO do something with ports
@@ -217,17 +221,19 @@ class Server:
 
 ######################################################################################################################
 
-# a template for an agent class
 class Agent:
+    '''a template for an agent class'''
     # generate a ship placement
     def place_ships(self):
         raise NotImplementedError
     # make a move:
     def make_a_move(self):
         raise NotImplementedError
-        # TODO: mb use this madness?
-        # while True:
-            # pos = (0,0)
-            # response = yield pos
-            # TODO
+    # called after the move was made
+    def respond(self, result):
+        raise NotImplementedError
+    # called at the end of the game
+    def finish(self, result):
+        raise NotImplementedError
+
 
