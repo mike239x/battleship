@@ -12,18 +12,16 @@ from scipy.ndimage.morphology import binary_dilation
 FIELD_SIZE = (10,10) # width, height
 SHIP_SIZES = [5,4,4,3,3,3,2,2,2,2]
 
-class ActionResult(Enum):
+class Msg(Enum):
     ILLEGAL_MOVE = -2
     REPEATING_MOVE = -1
     MISS = 0
     HIT = 1
     SUNK = 2
-
-class Msg(Enum):
-    CONFIRMED = b'Okay'
-    YOU_WON = b'You won'
-    YOU_LOST = b'You lost'
-    YOUR_TURN = b'Your turn'
+    CONFIRMED = 3
+    YOU_WON = 4
+    YOU_LOST = 5
+    YOUR_TURN = 6
 
 ######################################################################################################################
 
@@ -68,21 +66,21 @@ def place_ships(ships):
 
 # probes a position `pos` of the opponent's `field`.
 # previous probed positions are provided in by `probed`.
-# returns ActionResult
+# returns one of: ILLEGAL_MOVE, REPEATING_MOVE, MISS, HIT, SUNK
 def probe(pos, probed, field):
     x,y = pos
     if x < 0 or x >= FIELD_SIZE[0] or y < 0 or y >= FIELD_SIZE[1]:
-        return ActionResult.ILLEGAL_MOVE
+        return Msg.ILLEGAL_MOVE
     if probed[y][x]:
-        return ActionResult.REPEATING_MOVE
+        return Msg.REPEATING_MOVE
     ship_id = field[y][x]
     probed[y][x] = True
     if ship_id == 0:
-        return ActionResult.MISS
+        return Msg.MISS
     if all(probed[field == ship_id]):
-        return ActionResult.SUNK
+        return Msg.SUNK
     else:
-        return ActionResult.HIT
+        return Msg.HIT
 
 # a class to represent a player state
 # `probed` keeps track of the squares which the players probes in his turns
@@ -193,22 +191,22 @@ class Server:
             # get comfirmation
             msg = self.sockets[cur].recv()
             assert (msg == CONFIRMED)
-            if re == ActionResult.ILLEGAL_MOVE:
+            if re == Msg.ILLEGAL_MOVE:
                 cur = 1 - cur
                 if not self.allow_illegal_moves:
                     self.announce_winner(1-cur)
                     finished = True
-            elif re == ActionResult.REPEATING_MOVE:
+            elif re == Msg.REPEATING_MOVE:
                 cur = 1 - cur
                 if not self.allow_repeating_moves:
                     self.announce_winner(1-cur)
                     finished = True
-            elif re == ActionResult.MISS:
+            elif re == Msg.MISS:
                 self.players[cur].probed[y][x] = True
                 cur = 1 - cur
-            elif re == ActionResult.HIT:
+            elif re == Msg.HIT:
                 self.players[cur].probed[y][x] = True
-            elif re == ActionResult.SUNK:
+            elif re == Msg.SUNK:
                 self.players[cur].probed[y][x] = True
                 if all(self.players[cur].probed[self.players[1-cur].field > 0]):
                     self.announce_winner(cur)
