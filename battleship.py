@@ -8,6 +8,9 @@ import numpy as np
 from enum import Enum
 from scipy.ndimage.morphology import binary_dilation
 
+######################################################################################################################
+# some constants
+
 FIELD_SIZE = (10,10) # width, height
 SHIP_SIZES = [5,4,4,3,3,3,2,2,2,2]
 
@@ -17,12 +20,19 @@ class Msg(Enum):
     MISS = 0
     HIT = 1
     SUNK = 2
-    CONFIRMED = 3
-    YOU_WON = 4
-    YOU_LOST = 5
-    YOUR_TURN = 6
+    WON = 3
+    LOST = 4
+    CONFIRMED = 5
+    PLACE_SHIPS = 6
+    YOUR_TURN = 7
+
+class DefaultRules:
+    allow_illegal_moves = False
+    allow_repeating_moves = True
+    max_turns = 100
 
 ######################################################################################################################
+# game machanics
 
 def place_ships(ships):
     '''place the ships on the battlefield
@@ -81,32 +91,101 @@ def probe(pos, probed, field):
     else:
         return Msg.HIT
 
+class Agent:
+    '''a template for an agent class'''
+    # generate a ship placement
+    def ships(self):
+        raise NotImplementedError
+    # make a move:
+    def make_a_move(self):
+        raise NotImplementedError
+    # called after the move was made
+    def give(self, response):
+        raise NotImplementedError
+    # called at the end of the game
+    def finish(self, result):
+        raise NotImplementedError
+
+def battle(player0, player1, rules):
+    '''play the game between two agents'''
+    players = (player0, player1)
+    probed = tuple(np.zeros(FIELD_SIZE, dtype = np.bool) for _ in range(2))
+    ships = tuple(np.zeros(FIELD_SIZE) for _ in range(2))
+    success, ships[0] = place_ships(player0.ships())
+    if not success:
+        return
+    success, ships[1] = place_ships(player1.ships())
+    if not success:
+        return
+    cur = 0 # id of the active player
+    turn_num = 0
+    while turn_num != rules.max_turns:
+        x,y = players[cur].make_a_move()
+        # TODO give it X seconds for thinking
+        response = probe(pos, probed[cur], ships[1-cur])
+        players[cur].give(response)
+        if response == Msg.ILLEGAL_MOVE:
+            cur = 1 - cur
+            if not rules.allow_illegal_moves:
+                break
+        elif response == Msg.REPEATING_MOVE:
+            cur = 1 - cur
+            if not rules.allow_repeating_moves:
+                break
+        elif response == Msg.MISS:
+            probed[cur][y][x] = True
+            cur = 1 - cur
+        elif response == Msg.HIT:
+            probed[cur][y][x] = True
+        elif response == Msg.SUNK:
+            probed[cur][y][x] = True
+            if all(probed[cur][ships[1-cur] > 0]):
+                break
+        # TODO broadcast updates into outer space?
+        turn_num += 1
+    # end of the main game loop
+    players[cur].finish(Msg.WON)
+    players[1-cur].finish(Msg.LOST)
+    # TODO shall we somehow play till the end after one of the players finished?
+
 ######################################################################################################################
+# networking
 
-class Player:
-    '''a class to represent a player state
-    `probed` keeps track of the squares which the players probes in his turns
-    while `field` has all the ships
-    '''
-    def __init__(self):
-        self.probed = np.zeros(FIELD_SIZE, dtype=np.bool)
-        self.field = np.zeros(FIELD_SIZE)
+class RemoteAgent(Agent):
+    def __init__(self, socket):
+        self.socket = socket
+    # generate a ship placement
+    def ships(self):
+        self.socket.send(pickle.dumps(Msg.PLACE_SHIPS))
+        ships = pickle.loads(self.socket.recv())
+        return ships
+    # make a move:
+    def make_a_move(self):
+        self.socket.send(pickle.dumps(Msg.YOUR_TURN))
+        move = pickle.loads(self.recv())
+        return move
+    # called after the move was made
+    def give(self, response):
+        self.socket.send(pickle.dumps(response))
+        # self.recv()
+    # called at the end of the game
+    def finish(self, result):
+        self.socket.send(pickle.dumps(response))
+        # self.recv()
 
-######################################################################################################################
+class Server:
+    pass # TODO
 
+# TODO
 class Client:
-    def __init__(self, agent):
+    def __init__(self, agent, socket):
         self.agent = agent
-        # TODO idea: make a hard check on init that agent would place ships properly, if not - break immediately
-        self.ships = agent.place_ships()
-        self.field = place_ships(self.ships)
-        assert(self.field[0]) # success
-        self.field = self.field[1]
+        self.socket = socket
 
     def start(self):
         #TODO do something with ports
         port = "tcp://127.0.0.1:5555"
-        self.socket = context.socket(zmq.PAIR)
+        self.socket = zmq.Context.socket(zmq.PAIR)
         self.socket.connect(port)
         self.force_stop()
         self.process = Process(target = self.run, args = ())
@@ -137,103 +216,4 @@ class Client:
         # end of the main game loop
 
 ######################################################################################################################
-
-class Server:
-    def __init__(self, allow_illegal_moves = False, allow_repeating_moves = False):
-        self.players = (Player(), Player())
-        self.allow_illegal_moves = allow_illegal_moves
-        self.allow_repeating_moves = allow_repeating_moves
-
-    def start(self):
-        # TODO get both players connected and get their ships dispositions
-        port1 = "tcp://127.0.0.1:5555"
-        port2 = "tcp://127.0.0.1:5556"
-        ...
-        context = zmq.Context()
-        self.sockets = []
-        sock = context.socket(zmq.PAIR)
-        sock.bind(port1)
-        self.sockets.append(sock)
-        sock = context.socket(zmq.PAIR)
-        sock.bind(port2)
-        self.sockets.append(sock)
-        self.force_stop()
-        self.process = Process(target = self.run, args = ())
-        self.process.start()
-
-    def force_stop(self):
-        if self.process != None:
-            self.process.terminate()
-
-    def announce_winner(self, winner):
-        # write to the winner
-        self.sockets[winner].send_string("You won")
-        # get response
-        msg = self.sockets[winner].recv()
-        assert(msg == CONFIRMED)
-        # write to the loser
-        self.sockets[1-winner].send_string("You lost")
-        # get response
-        msg = self.sockets[1-winner].recv()
-        assert(msg == CONFIRMED)
-
-    def run(self):
-        cur = 0 # id of the active player
-        finished = False
-        # main game loop:
-        while not finished:
-            # ask the active player for a move:
-            self.sockets[cur].send_string("Your turn")
-            # TODO give it X seconds for thinking
-            # get its response
-            msg = self.sockets[cur].recv()
-            pos = pickle.loads(msg)
-            x,y = pos
-            re = probe(pos, self.players[cur].probed, self.players[1-cur].field)
-            # reply to the player of the action result
-            self.sockets[cur].send(pickle.dumps(re))
-            # get comfirmation
-            msg = self.sockets[cur].recv()
-            assert (msg == CONFIRMED)
-            if re == Msg.ILLEGAL_MOVE:
-                cur = 1 - cur
-                if not self.allow_illegal_moves:
-                    self.announce_winner(1-cur)
-                    finished = True
-            elif re == Msg.REPEATING_MOVE:
-                cur = 1 - cur
-                if not self.allow_repeating_moves:
-                    self.announce_winner(1-cur)
-                    finished = True
-            elif re == Msg.MISS:
-                self.players[cur].probed[y][x] = True
-                cur = 1 - cur
-            elif re == Msg.HIT:
-                self.players[cur].probed[y][x] = True
-            elif re == Msg.SUNK:
-                self.players[cur].probed[y][x] = True
-                if all(self.players[cur].probed[self.players[1-cur].field > 0]):
-                    self.announce_winner(cur)
-                    finished = True
-                    # TODO shall we play till the end after the first one finished?
-            # TODO broadcast updates into outer space?
-        # end of the main game loop
-
-######################################################################################################################
-
-class Agent:
-    '''a template for an agent class'''
-    # generate a ship placement
-    def place_ships(self):
-        raise NotImplementedError
-    # make a move:
-    def make_a_move(self):
-        raise NotImplementedError
-    # called after the move was made
-    def respond(self, result):
-        raise NotImplementedError
-    # called at the end of the game
-    def finish(self, result):
-        raise NotImplementedError
-
-
+# misc
