@@ -7,11 +7,15 @@ import zmq
 import numpy as np
 from enum import Enum
 from scipy.ndimage.morphology import binary_dilation
+from random import randint, getrandbits, shuffle
+from skimage.measure import label
+from copy import deepcopy
 
 ######################################################################################################################
 # some constants
 
 FIELD_SIZE = (10,10) # width, height
+FIELD_HEIGHT, FIELD_WIDTH = FIELD_SIZE
 SHIP_SIZES = [5,4,4,3,3,3,2,2,2,2]
 
 class Msg(Enum):
@@ -47,6 +51,7 @@ def place_ships(ships):
     re = np.zeros(FIELD_SIZE, dtype = np.uint8)
     success = True
     k = 1
+    # TODO use enumerate here
     for i in range(len(SHIP_SIZES)):
         ship_tiles = np.zeros(FIELD_SIZE)
         x = ships[i][0][0]
@@ -217,3 +222,95 @@ class Client:
 
 ######################################################################################################################
 # misc
+
+class SmartAgent(Agent):
+    '''a sophisticated algorithm'''
+    def __init__(self):
+        self.field = np.zeros(FIELD_SIZE)
+        self.ships_tiles_uncovered = 0
+        self.anchor = (-1,-1)
+        self.dir = (0,0)
+    # generate a ship placement
+    def ships(self):
+        while True:
+            ships = []
+            for l in SHIP_SIZES:
+                hor = bool(getrandbits(1))
+                if hor:
+                    x = randint(0, FIELD_WIDTH-l)
+                    y = randint(0, FIELD_HEIGHT-1)
+                else:
+                    x = randint(0, FIELD_WIDTH-1)
+                    y = randint(0, FIELD_HEIGHT-l)
+                ships.append(((x,y), hor))
+            success, field = place_ships(ships)
+            if success:
+                break
+        return ships
+    # make a move:
+    def make_a_move(self):
+        if self.ships_tiles_uncovered == 0:
+            # search for another ship
+            # randomly choose a new point following a checkerboard pattern:
+            while True:
+                x = randint(0,7)
+                y = 2 * randint(0,3)
+                if x % 2 == 1:
+                    y += 1
+                if self.field[y][x] == 0:
+                    break
+        else:
+            x,y = self.good_moves[-1]
+            if self.ships_tiles_uncovered == 1:
+                # choose a direction in which to go on with shooting:
+                l_max = 0;
+                for dx,dy in [(0,1),(1,0),(0,-1),(-1,0)]:
+                    x,y = self.anchor
+                    for l in count():
+                        x+=dx
+                        y+=dy
+                        if x not in range(FIELD_WIDTH) or y not in range(FIELD_HEIGHT):
+                            break
+                        if self.field[y][x] != 0:
+                            break
+                    if l > l_max:
+                        l_max = l
+                        self.dir = (dx,dy)
+            dx,dy = self.dir
+            x += dx
+            y += dy
+            if self.field[y][x] != 0:
+                # change direction and start from anchor
+                dx = -dx
+                dy = -dy
+                self.dir = (dx,dy)
+                x,y = self.anchor
+                x += dx
+                y += dy
+        self.good_moves.append((x,y))
+        return self.good_moves[-1]
+    # called after the move was made
+    def give(self, response):
+        x,y = self.good_moves[-1]
+        if response == Msg.MISS:
+            self.field[y][x] = -1
+            self.good_moves.pop()
+        if response == Msg.SUNK:
+            self.field[y][x] = 1
+            sunk_ship = np.zeros(FIELD_SIZE, dtype = np.bool)
+            for x,y in self.good_moves:
+                sunk_ship[y][x] = True
+            surrondings = binary_dilation(sunk_ship)
+            self.field[surrondings] = -1
+            self.field[sunk_ship] = 1
+            self.ships_tiles_uncovered = 0
+            self.good_moves = []
+        if response == Msg.HIT:
+            if self.ships_tiles_uncovered == 0:
+                self.anchor = (x,y)
+                self.dir = (0,0)
+            self.field[y][x] = 1
+            self.ships_tiles_uncovered += 1
+    # called at the end of the game
+    def finish(self, result):
+        pass

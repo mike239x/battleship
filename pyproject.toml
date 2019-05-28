@@ -10,6 +10,7 @@ python = ">=3.5"
 pyzmq = "^18.0"
 numpy = "^1.16"
 scipy = "^1.2"
+scikit-image = "^0.15.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.0"
