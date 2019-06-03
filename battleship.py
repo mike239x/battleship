@@ -10,6 +10,7 @@ from scipy.ndimage.morphology import binary_dilation
 from random import randint, getrandbits, shuffle
 from skimage.measure import label
 from copy import deepcopy
+from itertools import count
 
 ######################################################################################################################
 # some constants
@@ -85,10 +86,10 @@ def probe(pos, probed, field):
     x,y = pos
     if x < 0 or x >= FIELD_SIZE[0] or y < 0 or y >= FIELD_SIZE[1]:
         return Msg.ILLEGAL_MOVE
-    if probed[y][x]:
+    if probed[y,x]:
         return Msg.REPEATING_MOVE
-    ship_id = field[y][x]
-    probed[y][x] = True
+    ship_id = field[y,x]
+    probed[y,x] = True
     if ship_id == 0:
         return Msg.MISS
     if all(probed[field == ship_id]):
@@ -111,47 +112,52 @@ class Agent:
     def finish(self, result):
         raise NotImplementedError
 
-def battle(player0, player1, rules):
-    '''play the game between two agents'''
-    players = (player0, player1)
-    probed = tuple(np.zeros(FIELD_SIZE, dtype = np.bool) for _ in range(2))
-    ships = tuple(np.zeros(FIELD_SIZE) for _ in range(2))
-    success, ships[0] = place_ships(player0.ships())
-    if not success:
-        return
-    success, ships[1] = place_ships(player1.ships())
-    if not success:
-        return
-    cur = 0 # id of the active player
-    turn_num = 0
-    while turn_num != rules.max_turns:
-        x,y = players[cur].make_a_move()
+def mini_battle(player, field, rules):
+    probed = np.zeros(FIELD_SIZE, dtype = np.bool)
+    for turn_num in count():
+        pos = player.make_a_move()
+        x,y = pos
         # TODO give it X seconds for thinking
-        response = probe(pos, probed[cur], ships[1-cur])
-        players[cur].give(response)
-        if response == Msg.ILLEGAL_MOVE:
-            cur = 1 - cur
-            if not rules.allow_illegal_moves:
+        response = probe(pos, probed, field)
+        player.give(response)
+        if response != Msg.ILLEGAL_MOVE:
+            probed[y,x] = True
+        yield (turn_num, response, probed)
+        # TODO split in 3 lines?
+        if response in rules.illegal_moves or turn_num == rules.max_turns or all(probed[field > 0]):
+            break
+    while True:
+        yield None
+
+def battle(players, rules):
+    '''play the game between two agents'''
+    games = []
+    success, field = place_ships(players[0].ships())
+    if success:
+        games.append(mini_battle(players[1], field, rules))
+    success, ships = place_ships(players[1].ships())
+    if success:
+        games.append(mini_battle(players[0], field, rules ))
+    finished = [False] * len(games)
+    cur = 0 # id of the active game
+    while True:
+        progress = next(games[cur])
+        if progress == None:
+            # TODO kill current game
+            finished[cur] = True
+            if all(finished): # if playing till first one win/lose which `all` to `any`
                 break
-        elif response == Msg.REPEATING_MOVE:
-            cur = 1 - cur
-            if not rules.allow_repeating_moves:
-                break
-        elif response == Msg.MISS:
-            probed[cur][y][x] = True
-            cur = 1 - cur
-        elif response == Msg.HIT:
-            probed[cur][y][x] = True
-        elif response == Msg.SUNK:
-            probed[cur][y][x] = True
-            if all(probed[cur][ships[1-cur] > 0]):
-                break
-        # TODO broadcast updates into outer space?
-        turn_num += 1
-    # end of the main game loop
+            cur = (cur+1) % len(games)
+            continue
+        else:
+            turn_num, response, probed = progress
+            yield (cur, turn_num, response, probed)
+            if response not in [Msg.HIT, Msg.SUNK]:
+                cur = (cur+1) % len(games)
     players[cur].finish(Msg.WON)
     players[1-cur].finish(Msg.LOST)
-    # TODO shall we somehow play till the end after one of the players finished?
+    while True:
+        yield None
 
 ######################################################################################################################
 # networking
@@ -172,53 +178,31 @@ class RemoteAgent(Agent):
     # called after the move was made
     def give(self, response):
         self.socket.send(pickle.dumps(response))
-        # self.recv()
     # called at the end of the game
     def finish(self, result):
         self.socket.send(pickle.dumps(response))
-        # self.recv()
 
-class Server:
-    pass # TODO
-
-# TODO
-class Client:
-    def __init__(self, agent, socket):
-        self.agent = agent
-        self.socket = socket
-
-    def start(self):
-        #TODO do something with ports
-        port = "tcp://127.0.0.1:5555"
-        self.socket = zmq.Context.socket(zmq.PAIR)
-        self.socket.connect(port)
-        self.force_stop()
-        self.process = Process(target = self.run, args = ())
-        self.process.start()
-
-    def force_stop(self):
-        if self.process != None:
-            self.process.terminate()
-
-    def run(self):
-        # main game loop:
-        while True:
-            # TODO get a msg from the server
-            msg = self.socket.recv()
-            if msg == Msg.YOUR_TURN:
-                # TODO spawn a separate process for that?
-                pos = self.agent.make_a_move()
-                data = pickle.dumps(pos)
-                self.socket.send(data)
-                msg = self.socket.recv()
-                data = pickle.loads(msg)
-                # TODO inform agent about the result
-                self.socket.send(Msg.CONFIRMED)
-            elif msg == Msg.YOU_LOST:
-                self.socket.send(Msg.CONFIRMED)
-            elif msg == Msg.YOU_WON:
-                self.socket.send(Msg.CONFIRMED)
-        # end of the main game loop
+def play_remotely(agent, port):
+    socket = zmq.Context().socket(zmq.PAIR)
+    socket.connect(port)
+    while True:
+        msg = socket.recv()
+        if msg == Msg.PLACE_SHIPS:
+            ships = agent.ships()
+            socket.send(pickle.dumps(ships))
+        elif msg == Msg.YOUR_TURN:
+            pos = agent.make_a_move()
+            socket.send(pickle.dumps(pos))
+            msg = socket.recv()
+            response = pickle.loads(msg)
+            agent.give(response)
+            socket.send(Msg.CONFIRMED)
+        elif msg == Msg.YOU_LOST:
+            socket.send(Msg.CONFIRMED)
+            break
+        elif msg == Msg.YOU_WON:
+            socket.send(Msg.CONFIRMED)
+            break
 
 ######################################################################################################################
 # misc
@@ -230,22 +214,15 @@ class SmartAgent(Agent):
         self.ships_tiles_uncovered = 0
         self.anchor = (-1,-1)
         self.dir = (0,0)
+        self.good_moves = []
     # generate a ship placement
     def ships(self):
-        while True:
-            ships = []
-            for l in SHIP_SIZES:
-                hor = bool(getrandbits(1))
-                if hor:
-                    x = randint(0, FIELD_WIDTH-l)
-                    y = randint(0, FIELD_HEIGHT-1)
-                else:
-                    x = randint(0, FIELD_WIDTH-1)
-                    y = randint(0, FIELD_HEIGHT-l)
-                ships.append(((x,y), hor))
-            success, field = place_ships(ships)
-            if success:
-                break
+        # take random file out of the `ships` directory
+        n = randint(0,43)
+        # TODO use absolute path?
+        filename = "ships/{:>08}.pos".format(n)
+        with open(filename, 'rb') as f:
+            ships = pickle.load(f)
         return ships
     # make a move:
     def make_a_move(self):
@@ -253,14 +230,13 @@ class SmartAgent(Agent):
             # search for another ship
             # randomly choose a new point following a checkerboard pattern:
             while True:
-                x = randint(0,7)
-                y = 2 * randint(0,3)
+                x = randint(0, FIELD_WIDTH - 1)
+                y = 2 * randint(0, FIELD_HEIGHT/2 - 1) # requires field height to be divisable by 2
                 if x % 2 == 1:
                     y += 1
-                if self.field[y][x] == 0:
+                if self.field[y,x] == 0:
                     break
         else:
-            x,y = self.good_moves[-1]
             if self.ships_tiles_uncovered == 1:
                 # choose a direction in which to go on with shooting:
                 l_max = 0;
@@ -271,15 +247,16 @@ class SmartAgent(Agent):
                         y+=dy
                         if x not in range(FIELD_WIDTH) or y not in range(FIELD_HEIGHT):
                             break
-                        if self.field[y][x] != 0:
+                        if self.field[y,x] != 0:
                             break
                     if l > l_max:
                         l_max = l
                         self.dir = (dx,dy)
+            x,y = self.good_moves[-1]
             dx,dy = self.dir
             x += dx
             y += dy
-            if self.field[y][x] != 0:
+            if x not in range(FIELD_WIDTH) or y not in range(FIELD_HEIGHT) or self.field[y,x] != 0:
                 # change direction and start from anchor
                 dx = -dx
                 dy = -dy
@@ -293,13 +270,13 @@ class SmartAgent(Agent):
     def give(self, response):
         x,y = self.good_moves[-1]
         if response == Msg.MISS:
-            self.field[y][x] = -1
+            self.field[y,x] = -1
             self.good_moves.pop()
         if response == Msg.SUNK:
-            self.field[y][x] = 1
+            self.field[y,x] = 1
             sunk_ship = np.zeros(FIELD_SIZE, dtype = np.bool)
             for x,y in self.good_moves:
-                sunk_ship[y][x] = True
+                sunk_ship[y,x] = True
             surrondings = binary_dilation(sunk_ship)
             self.field[surrondings] = -1
             self.field[sunk_ship] = 1
@@ -309,7 +286,7 @@ class SmartAgent(Agent):
             if self.ships_tiles_uncovered == 0:
                 self.anchor = (x,y)
                 self.dir = (0,0)
-            self.field[y][x] = 1
+            self.field[y,x] = 1
             self.ships_tiles_uncovered += 1
     # called at the end of the game
     def finish(self, result):
