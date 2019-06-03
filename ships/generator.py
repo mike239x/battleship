@@ -3,6 +3,7 @@ import battleship as bs
 from random import randint, getrandbits
 from itertools import count
 import pickle
+import sys
 
 def generate_ships():
     while True:
@@ -21,8 +22,13 @@ def generate_ships():
             break
     return ships
 
-for i in count():
-    filename = "{:>08}.pos".format(i)
-    with open(filename, 'wb') as f:
-        pickle.dump(generate_ships(), f)
-    print(i)
+if __name__ == '__main__':
+    n = 0
+    if len(sys.argv) > 1:
+        n = int(sys.argv[1])
+    for i in count(n):
+        ships = generate_ships()
+        filename = "{:>08}.pos".format(i)
+        with open(filename, 'wb') as f:
+            pickle.dump(ships, f)
+        print(i)
