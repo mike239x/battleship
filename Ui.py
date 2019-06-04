@@ -45,8 +45,8 @@ def run_on_console(game, dt):
             turn_num = trace.get("turn_num")
             latest_result = trace.get("response")
             pos = trace.get("pos")
-            print(f"Player {player} after {turn_num} moves")
-            print(f"Last result: {latest_result} on {pos}")
+            print("Player {} after {} moves".format(player, turn_num))
+            print("Last result: {} on {}".format(latest_result, pos))
             print(probed.astype(np.int))
 
         def print_players(states, probed):
@@ -58,7 +58,7 @@ def run_on_console(game, dt):
         return print_players
 
     def finish_game():
-        print(f"Game ended")
+        print("Game ended")
 
     printer = get_console_printer()
     for state, probed in trace_game(game):
@@ -141,5 +141,5 @@ if __name__ == "__main__":
     a2 = RandomAgent("ships/00000118.pos", True)
 
     game = battle((a1, a2), DefaultRules)
-    run_in_qt(game, 500)
-    # run_on_console(game, 0)
+    # run_in_qt(game, 100)
+    run_on_console(game, 100)
