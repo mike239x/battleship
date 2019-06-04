@@ -296,3 +296,45 @@ class SmartAgent(Agent):
     # called at the end of the game
     def finish(self, result):
         pass
+
+class RandomAgent(Agent):
+    '''a sophisticated algorithm'''
+    def __init__(self):
+        self.field = np.zeros(FIELD_SIZE)
+        self.good_moves = []
+
+    # generate a ship placement
+    def ships(self):
+        # take random file out of the `ships` directory
+        n = randint(0,43)
+        # TODO use absolute path?
+        filename = "ships/{:>08}.pos".format(n)
+        with open(filename, 'rb') as f:
+            ships = pickle.load(f)
+        return ships
+
+    # make a move:
+    def make_a_move(self):
+        # search for another ship
+        # randomly choose a new point following a checkerboard pattern:
+        while True:
+            x = randint(0, FIELD_WIDTH - 1)
+            y = randint(0, FIELD_HEIGHT - 1)
+            if self.field[y,x] == 0:
+                break
+
+        self.good_moves.append((x,y))
+        return self.good_moves[-1]
+
+    # called after the move was made
+    def give(self, response):
+        x,y = self.good_moves[-1]
+        if response == Msg.MISS:
+            self.field[y,x] = -1
+        if response == Msg.SUNK or response == Msg.HIT:
+            self.field[y,x] = 1
+        self.good_moves.pop()
+
+    # called at the end of the game
+    def finish(self, result):
+        pass

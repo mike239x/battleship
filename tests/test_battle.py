@@ -36,3 +36,17 @@ def test_1():
         print(response)
         print(probed.astype(np.int))
 
+def test_2():
+    agent1 = SmartAgent()
+    agent2 = RandomAgent()
+    g = battle((agent1, agent2), Rules())
+    for progress in g:
+        if progress == None:
+            break
+        current_player, turn_num, response, probed = progress
+        assert response != Msg.ILLEGAL_MOVE
+        assert response != Msg.REPEATING_MOVE
+        print(current_player)
+        print(turn_num)
+        print(response)
+        print(probed.astype(np.int))
