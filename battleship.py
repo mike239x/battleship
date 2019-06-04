@@ -335,3 +335,39 @@ class RandomAgent(Agent):
     # called at the end of the game
     def finish(self, result):
         pass
+
+def update_visible_ships(visible, pos, response):
+    x,y = pos
+    if response == Msg.MISS:
+        visible[y,x] = 1
+    elif response == Msg.HIT:
+        visible[y,x] = 2
+    elif response == Msg.SUNK:
+        visible[y,x] = 2
+        ships = label(visible, background = 0)
+        visible[ships == ships[y,x]] = 3
+    return visible
+
+def sample_Q(minigame, callback, discount = 0.02):
+    field = np.zeros(FIELD_SIZE)
+    fields = [field]
+    actions = []
+    rewards = []
+    for progress in minigame:
+        if progress.response in ( Msg.YOU_WON, Msg, YOU_LOST ):
+            break
+        field = update_visible_ships(field, progress.pos, progress.response)
+        fields.append(field)
+        actions.append(progress.pos)
+        rewards.append(reward_[progress.response])
+    fields.pop()
+    return_ = 0
+    actions.reverse()
+    fields.reverse()
+    rewards.reverse()
+    for action, field, reward in zip(actions, fields, rewards):
+        return_ *= 1.0 - discount
+        return_ += reward
+        callback(field, action, return_)
+
+

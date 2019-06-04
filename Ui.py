@@ -1,4 +1,4 @@
-from battleship import Msg
+from battleship import Msg, update_visible_ships
 import skimage
 
 import numpy as np
@@ -16,16 +16,8 @@ def trace_game(game):
 
         response = state.response
         if response in (Msg.HIT, Msg.SUNK, Msg.MISS):
-            x, y = state.pos
-            probed[player_id] = probed.get(player_id, np.zeros((10, 10), np.uint8))
-            if response == Msg.SUNK:
-                probed[player_id][y, x] = 2
-                ships = skimage.measure.label(probed[player_id])
-                probed[player_id][ships == ships[y,x]] = 3
-            elif response == Msg.HIT:
-                probed[player_id][y, x] = 2
-            else:
-                probed[player_id][y, x] = 1
+            v = probed.get(player_id, np.zeros((10, 10), np.uint8))
+            probed[player_id] = update_visible_ships(v, state.pos, state.response)
         yield states, probed
 
         if state.response in (Msg.YOU_WON, Msg.YOU_LOST):
