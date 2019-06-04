@@ -34,8 +34,7 @@ class Msg(Enum):
     YOU_WON = 9
 
 class DefaultRules:
-    allow_illegal_moves = False
-    allow_repeating_moves = True
+    illegal_moves = [Msg.ILLEGAL_MOVE, Msg.REPEATING_MOVE]
     max_turns = 100
 
 ######################################################################################################################
@@ -218,19 +217,16 @@ def play_remotely(agent, port):
 
 class SmartAgent(Agent):
     '''a sophisticated algorithm'''
-    def __init__(self):
+    def __init__(self, filename):
         self.field = np.zeros(FIELD_SIZE)
         self.ships_tiles_uncovered = 0
         self.anchor = (-1,-1)
         self.dir = (0,0)
         self.good_moves = []
+        self.filename = filename
     # generate a ship placement
     def ships(self):
-        # take random file out of the `ships` directory
-        n = randint(0,43)
-        # TODO use absolute path?
-        filename = "ships/{:>08}.pos".format(n)
-        with open(filename, 'rb') as f:
+        with open(self.filename, 'rb') as f:
             ships = pickle.load(f)
         return ships
     # make a move:
@@ -303,17 +299,14 @@ class SmartAgent(Agent):
 
 class RandomAgent(Agent):
     '''a not so sophisticated algorithm'''
-    def __init__(self):
+    def __init__(self, filename):
         self.field = np.zeros(FIELD_SIZE)
         self.good_moves = []
+        self.filename = filename
 
     # generate a ship placement
     def ships(self):
-        # take random file out of the `ships` directory
-        n = randint(0,43)
-        # TODO use absolute path?
-        filename = "ships/{:>08}.pos".format(n)
-        with open(filename, 'rb') as f:
+        with open(self.filename, 'rb') as f:
             ships = pickle.load(f)
         return ships
 

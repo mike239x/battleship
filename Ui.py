@@ -1,7 +1,7 @@
 from battleship import Msg
+import skimage
 
 import numpy as np
-
 
 def trace_game(game):
     states = {}
@@ -14,22 +14,22 @@ def trace_game(game):
         player_id = state.get("current_player_id", 0)
         states[player_id] = state
 
-        response = state["response"]
+        response = state.response
         if response in (Msg.HIT, Msg.SUNK, Msg.MISS):
-            x, y = state["pos"]
+            x, y = state.pos
             probed[player_id] = probed.get(player_id, np.zeros((10, 10), np.uint8))
             if response == Msg.SUNK:
-                probed[player_id][x, y] = 3
+                probed[player_id][y, x] = 2
+                ships = skimage.measure.label(probed[player_id])
+                probed[player_id][ships == ships[y,x]] = 3
             elif response == Msg.HIT:
-                probed[player_id][x, y] = 2
+                probed[player_id][y, x] = 2
             else:
-                probed[player_id][x, y] = 1
-
+                probed[player_id][y, x] = 1
         yield states, probed
 
-        if state["response"] in (Msg.YOU_WON, Msg.YOU_LOST):
+        if state.response in (Msg.YOU_WON, Msg.YOU_LOST):
             break
-
 
 def run_on_console(game, dt):
     from time import sleep
@@ -132,17 +132,14 @@ def run_in_qt(game, dt):
 
 if __name__ == "__main__":
     from battleship import DefaultRules, battle, mini_battle, place_ships
-    from RandomAgent import RandomAgent
-
-    DefaultRules.illegal_moves = []
-    DefaultRules.max_turns = 10000
+    from battleship import RandomAgent, SmartAgent
 
     a1 = RandomAgent("ships/00000000.pos")
-    a2 = RandomAgent("ships/00000118.pos", True)
+    a2 = SmartAgent("ships/00000118.pos")
     _, s2 = place_ships(a2.ships())
 
-    game = battle((a1, a2), DefaultRules)
-    mini_game = mini_battle(a2, s2, DefaultRules)
+    game = battle((a1, a2), DefaultRules())
+    mini_game = mini_battle(a2, s2, DefaultRules())
 
 
     import argparse

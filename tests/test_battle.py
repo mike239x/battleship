@@ -1,16 +1,12 @@
 from battleship import *
 
-class Rules:
-    illegal_moves = [Msg.ILLEGAL_MOVE, Msg.REPEATING_MOVE]
-    max_turns = 100
-
 def test_0():
-    agent = SmartAgent()
+    agent = SmartAgent("ships/00000118.pos")
     ships = agent.ships()
     success, field = place_ships(ships)
     print(field)
     assert success
-    g = mini_battle(agent, field, Rules())
+    g = mini_battle(agent, field, DefaultRules())
     for progress in g:
         if progress == None:
             break
@@ -21,9 +17,9 @@ def test_0():
         print('response is', progress.response)
 
 def test_1():
-    agent1 = SmartAgent()
-    agent2 = SmartAgent()
-    g = battle((agent1, agent2), Rules())
+    agent1 = SmartAgent("ships/00000034.pos")
+    agent2 = SmartAgent("ships/00000042.pos")
+    g = battle((agent1, agent2), DefaultRules())
     for progress in g:
         if progress == None:
             break
@@ -35,9 +31,9 @@ def test_1():
         print('response is', progress.response)
 
 def test_2():
-    agent1 = SmartAgent()
-    agent2 = RandomAgent()
-    g = battle((agent1, agent2), Rules())
+    agent1 = SmartAgent("ships/00000034.pos")
+    agent2 = RandomAgent("ships/00000042.pos")
+    g = battle((agent1, agent2), DefaultRules())
     for progress in g:
         if progress == None:
             break
