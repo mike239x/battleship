@@ -14,12 +14,11 @@ def test_0():
     for progress in g:
         if progress == None:
             break
-        turn_num, response, probed = progress
-        assert response != Msg.ILLEGAL_MOVE
-        assert response != Msg.REPEATING_MOVE
-        print(turn_num)
-        print(response)
-        print(probed.astype(np.int))
+        assert progress.response != Msg.ILLEGAL_MOVE
+        assert progress.response != Msg.REPEATING_MOVE
+        print('turn number is', progress.turn_num)
+        print('player move was', progress.pos)
+        print('response is', progress.response)
 
 def test_1():
     agent1 = SmartAgent()
@@ -28,13 +27,12 @@ def test_1():
     for progress in g:
         if progress == None:
             break
-        current_player, turn_num, response, probed = progress
-        assert response != Msg.ILLEGAL_MOVE
-        assert response != Msg.REPEATING_MOVE
-        print(current_player)
-        print(turn_num)
-        print(response)
-        print(probed.astype(np.int))
+        assert progress.response != Msg.ILLEGAL_MOVE
+        assert progress.response != Msg.REPEATING_MOVE
+        print('current player id is', progress.current_player_id)
+        print('turn number is', progress.turn_num)
+        print('player move was', progress.pos)
+        print('response is', progress.response)
 
 def test_2():
     agent1 = SmartAgent()
@@ -43,10 +41,9 @@ def test_2():
     for progress in g:
         if progress == None:
             break
-        current_player, turn_num, response, probed = progress
-        assert response != Msg.ILLEGAL_MOVE
-        assert response != Msg.REPEATING_MOVE
-        print(current_player)
-        print(turn_num)
-        print(response)
-        print(probed.astype(np.int))
+        assert progress.response != Msg.ILLEGAL_MOVE
+        assert progress.response != Msg.REPEATING_MOVE
+        print('current player id is', progress.current_player_id)
+        print('turn number is', progress.turn_num)
+        print('player move was', progress.pos)
+        print('response is', progress.response)

@@ -114,6 +114,11 @@ class Agent:
     def finish(self, result):
         raise NotImplementedError
 
+class Dict(dict):
+    def __init__(self, **kwargs):
+        super().__init__(kwargs)
+        self.__dict__ = self
+
 def mini_battle(player, field, rules):
     probed = np.zeros(FIELD_SIZE, dtype = np.bool)
     for turn_num in count():
@@ -124,12 +129,12 @@ def mini_battle(player, field, rules):
         player.give(response)
         if response != Msg.ILLEGAL_MOVE:
             probed[y,x] = True
-        yield (turn_num, response, probed)
+        yield Dict(turn_num = turn_num, pos = pos, response = response)
         if response in rules.illegal_moves or turn_num == rules.max_turns:
-            yield (turn_num, Msg.YOU_LOST, probed)
+            yield Dict(turn_num = turn_num, pos = pos, response = Msg.YOU_LOST)
             break
         if all(probed[field > 0]):
-            yield (turn_num, Msg.YOU_WON, probed)
+            yield Dict(turn_num = turn_num, pos = pos, response = Msg.YOU_WON)
             break
     while True:
         yield None
@@ -155,9 +160,8 @@ def battle(players, rules):
             cur = (cur+1) % len(games)
             continue
         else:
-            turn_num, response, probed = progress
-            yield (cur, turn_num, response, probed)
-            if response not in [Msg.HIT, Msg.SUNK]:
+            yield Dict(current_player_id = cur, **progress)
+            if progress.response not in [Msg.HIT, Msg.SUNK]:
                 cur = (cur+1) % len(games)
     players[cur].finish(Msg.WON)
     players[1-cur].finish(Msg.LOST)
@@ -298,7 +302,7 @@ class SmartAgent(Agent):
         pass
 
 class RandomAgent(Agent):
-    '''a sophisticated algorithm'''
+    '''a not so sophisticated algorithm'''
     def __init__(self):
         self.field = np.zeros(FIELD_SIZE)
         self.good_moves = []
