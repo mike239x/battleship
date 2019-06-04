@@ -248,7 +248,7 @@ class SmartAgent(Agent):
         else:
             if self.ships_tiles_uncovered == 1:
                 # choose a direction in which to go on with shooting:
-                l_max = 0;
+                l_max = 0
                 for dx,dy in [(0,1),(1,0),(0,-1),(-1,0)]:
                     x,y = self.anchor
                     for l in count():
