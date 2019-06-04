@@ -11,7 +11,7 @@ def trace_game(game):
         if state is None:
             break
 
-        player_id = state["current_player_id"]
+        player_id = state.get("current_player_id", 0)
         states[player_id] = state
 
         response = state["response"]
@@ -131,7 +131,7 @@ def run_in_qt(game, dt):
 
 
 if __name__ == "__main__":
-    from battleship import DefaultRules, battle
+    from battleship import DefaultRules, battle, mini_battle, place_ships
     from RandomAgent import RandomAgent
 
     DefaultRules.illegal_moves = []
@@ -139,7 +139,23 @@ if __name__ == "__main__":
 
     a1 = RandomAgent("ships/00000000.pos")
     a2 = RandomAgent("ships/00000118.pos", True)
+    _, s2 = place_ships(a2.ships())
 
     game = battle((a1, a2), DefaultRules)
-    # run_in_qt(game, 100)
-    run_on_console(game, 100)
+    mini_game = mini_battle(a2, s2, DefaultRules)
+
+
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--qt", action="store_true", default=False, help="Use qt ui")
+    parser.add_argument("--delay", type=int, default=500, help="Delay between actions [ms]")
+    parser.add_argument("--battletype", choices=["mini", "normal"], default="mini", help="Use mini battle as default")
+    args = parser.parse_args()
+
+    our_game = game if args.battletype == "normal" else mini_game
+
+    if args.qt:
+        run_in_qt(our_game, args.delay)
+    else:
+        run_on_console(our_game, args.delay)
+
