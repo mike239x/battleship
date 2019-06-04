@@ -31,4 +31,8 @@ def test_1():
         current_player, turn_num, response, probed = progress
         assert response != Msg.ILLEGAL_MOVE
         assert response != Msg.REPEATING_MOVE
+        print(current_player)
+        print(turn_num)
+        print(response)
+        print(probed.astype(np.int))
 

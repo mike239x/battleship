@@ -30,6 +30,8 @@ class Msg(Enum):
     CONFIRMED = 5
     PLACE_SHIPS = 6
     YOUR_TURN = 7
+    YOU_LOST = 8
+    YOU_WON = 9
 
 class DefaultRules:
     allow_illegal_moves = False
@@ -123,8 +125,11 @@ def mini_battle(player, field, rules):
         if response != Msg.ILLEGAL_MOVE:
             probed[y,x] = True
         yield (turn_num, response, probed)
-        # TODO split in 3 lines?
-        if response in rules.illegal_moves or turn_num == rules.max_turns or all(probed[field > 0]):
+        if response in rules.illegal_moves or turn_num == rules.max_turns:
+            yield (turn_num, Msg.YOU_LOST, probed)
+            break
+        if all(probed[field > 0]):
+            yield (turn_num, Msg.YOU_WON, probed)
             break
     while True:
         yield None
