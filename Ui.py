@@ -169,21 +169,28 @@ if __name__ == "__main__":
         agent = SmartAgent()
     elif args.agent1 == "random":
         agent = RandomAgent()
+    else:
+        print("No valid agent1, abort")
+        exit(1)
 
     if args.agent2 is None:
-        game = mini_battle(agent, ships1)
+        agent2 = None
     elif args.agent2 == "super":
         agent2 = SuperAgent()
-        game = battle((agent, agent2))
     elif args.agent2 == "smart":
         agent2 = SmartAgent()
-        game = battle((agent, agent2))
     elif args.agent2 == "random":
         agent2 = RandomAgent()
-        game = battle((agent, agent2))
+    else:
+        agent2 = None
 
     agent.ships = ships1
     agent2.ships = ships2
+
+    if agent2 is None:
+        game = mini_battle(agent, ships1)
+    else:
+        game = battle((agent2, agent))
 
     if args.qt:
         run_in_qt(game, args.delay)
