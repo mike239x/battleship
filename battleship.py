@@ -390,12 +390,20 @@ class SuperAgent(Agent):
                          nn.Linear(n_h, n_out),
                          nn.ReLU())
 
+    def model_load(self, path):
+        self.model.load_state_dict(torch.load(path))
+        self.model.eval()
+
+    def model_save(self, path):
+        torch.save(self.model.state_dict(), path)
+
     # generate a ship placement
     def ships(self):
         with open(self.filename, 'rb') as f:
             ships = pickle.load(f)
         return ships
-    # trin agent
+
+    # train agent
     def train(self, field, action, return_):
         returns_ = self.model(torch.from_numpy(field.flatten().astype(np.float32)))
         x, y = action
