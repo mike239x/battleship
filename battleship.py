@@ -389,11 +389,23 @@ class SuperAgent(Agent):
                          nn.ReLU(),
                          nn.Linear(n_h, n_out),
                          nn.ReLU())
+
     # generate a ship placement
     def ships(self):
         with open(self.filename, 'rb') as f:
             ships = pickle.load(f)
         return ships
+    # trin agent
+    def train(self, field, action, return_):
+        returns_ = self.model(torch.from_numpy(field.flatten().astype(np.float32)))
+        x, y = action
+        criterion = torch.nn.MSELoss()
+        loss = criterion(returns_[y*FIELD_WIDTH + x], torch.from_numpy(np.array([return_], dtype = np.float32)))
+        optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
     # make a move:
     def make_a_move(self):
         returns_ = self.model(torch.from_numpy(self.field.flatten())).detach().numpy()
