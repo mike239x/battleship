@@ -7,7 +7,7 @@ import zmq
 import numpy as np
 from enum import Enum
 from scipy.ndimage.morphology import binary_dilation
-from random import randint, getrandbits, shuffle
+from random import randint, getrandbits, shuffle, random
 from skimage.measure import label
 from copy import deepcopy
 from itertools import count
@@ -342,8 +342,8 @@ def sample_Q(minigame, callback, discount = 0.02):
     reward_[Msg.SUNK] = 1
     reward_[Msg.HIT] = 1
     reward_[Msg.MISS] = 0
-    reward_[Msg.REPEATING_MOVE] = -10
-    reward_[Msg.ILLEGAL_MOVE] = -100
+    reward_[Msg.REPEATING_MOVE] = -1
+    # reward_[Msg.ILLEGAL_MOVE] = -100
     for progress in minigame:
         if progress.response in ( Msg.YOU_WON, Msg.YOU_LOST ):
             break
@@ -366,12 +366,11 @@ class SuperAgent(Agent):
     def __init__(self, ships = None):
         self.field = np.zeros(FIELD_SIZE, dtype = np.float32)
         self.ships = ships
-        n_in, n_h, n_out = 100, 40, 100
         self.model = nn.Sequential(
-                         nn.Linear(n_in, n_h),
-                         nn.ReLU(),
-                         nn.Linear(n_h, n_out),
-                         nn.ReLU())
+                         nn.Linear(100, 100),
+                         nn.Sigmoid())
+        self.verbose = False
+        self.exploration_rate = 0.0
     def model_load(self, path):
         self.model.load_state_dict(torch.load(path))
         self.model.eval()
@@ -382,15 +381,22 @@ class SuperAgent(Agent):
         returns_ = self.model(torch.from_numpy(field.flatten().astype(np.float32)))
         x, y = action
         criterion = torch.nn.MSELoss()
-        loss = criterion(returns_[y*FIELD_WIDTH + x], torch.from_numpy(np.array([return_], dtype = np.float32)))
-        optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01)
+        loss = criterion(returns_[y*FIELD_WIDTH + x], torch.tensor(return_, dtype = torch.float32))
+        optimizer = torch.optim.SGD(self.model.parameters(), lr=0.1)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
     # make a move:
     def make_a_move(self):
-        returns_ = self.model(torch.from_numpy(self.field.flatten())).detach().numpy()
-        pos = np.unravel_index(returns_.argmax(), FIELD_SIZE)
+        if random() > self.exploration_rate:
+            returns_ = self.model(torch.from_numpy(self.field.flatten())).detach().numpy()
+            if self.verbose:
+                print(self.field)
+                print(returns_.reshape(FIELD_SIZE))
+            y,x = np.unravel_index(returns_.argmax(), FIELD_SIZE)
+            pos = x,y
+        else:
+            pos = (randint(0, FIELD_WIDTH-1), randint(0, FIELD_HEIGHT-1))
         self.last_move = pos
         return pos
     # called after the move was made
