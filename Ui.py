@@ -95,22 +95,31 @@ def run_in_qt(game, dt):
 
     game_processor = trace_game(game)
 
-    def plot_fields(probed):
-        for p, field in probed.items():
+    def plot_fields(progress, probed):
+        for player, field in probed.items():
             field = field*80
-            img = QImage(field.repeat(4).data,
-                         field.shape[1], field.shape[0], QImage.Format_RGB32)
-            pix = QPixmap(img)
-            pix = pix.scaled(300, 300)
-            if p == 0:
+
+            modelled_data = field.repeat(4)
+            modelled_data = modelled_data.reshape(FIELD_HEIGHT, FIELD_WIDTH, 4)
+
+            if progress[player]["response"] == Msg.YOU_LOST:
+                modelled_data[:,:,0] = 0
+                modelled_data[:,:,1] = 0
+            if progress[player]["response"] == Msg.YOU_WON:
+                modelled_data[:,:,0] = 0
+                modelled_data[:,:,2] = 0
+
+            img = QImage(modelled_data.data, field.shape[1], field.shape[0], QImage.Format_RGB32)
+            pix = QPixmap(img).scaled(300,300)
+            if player == 0:
                 p1.setPixmap(pix)
-            if p == 1:
+            if player == 1:
                 p2.setPixmap(pix)
 
     def on_next_clicked():
         try:
-            _, probed = next(game_processor)
-            plot_fields(probed)
+            progress, probed = next(game_processor)
+            plot_fields(progress, probed)
         except StopIteration:
             timer.stop()
 
@@ -156,7 +165,6 @@ if __name__ == "__main__":
     if len(args.ships) < 1:
         print("Cannot find ship files")
         exit(1)
-    print(args.ships)
     ships1 = load_ships(args.ships[0])
     if len(args.ships) == 1:
         ships2 = ships1
