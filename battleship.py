@@ -11,6 +11,8 @@ from random import randint, getrandbits, shuffle
 from skimage.measure import label
 from copy import deepcopy
 from itertools import count
+import torch
+from torch import nn
 
 ######################################################################################################################
 # some constants
@@ -362,7 +364,7 @@ def sample_Q(minigame, callback, discount = 0.02):
     for progress in minigame:
         if progress.response in ( Msg.YOU_WON, Msg.YOU_LOST ):
             break
-        field = update_visible_ships(field, progress.pos, progress.response)
+        update_visible_ships(field, progress.pos, progress.response)
         fields.append(deepcopy(field))
         actions.append(progress.pos)
         rewards.append(reward_[progress.response])
@@ -379,9 +381,14 @@ def sample_Q(minigame, callback, discount = 0.02):
 class SuperAgent(Agent):
     '''an agent driven by inhuman ambitions'''
     def __init__(self, filename):
-        self.field = np.zeros(FIELD_SIZE)
+        self.field = np.zeros(FIELD_SIZE, dtype = np.float32)
         self.filename = filename
-        self.model = ... # TODO 
+        n_in, n_h, n_out = 100, 40, 100
+        self.model = nn.Sequential(
+                         nn.Linear(n_in, n_h),
+                         nn.ReLU(),
+                         nn.Linear(n_h, n_out),
+                         nn.ReLU())
     # generate a ship placement
     def ships(self):
         with open(self.filename, 'rb') as f:
@@ -389,14 +396,13 @@ class SuperAgent(Agent):
         return ships
     # make a move:
     def make_a_move(self):
-        # TODO
-        returns_ = self.model(torch.from_numpy(self.field)).numpy()
-        pos = np.unravel_index(a.argmax(), a.shape)
+        returns_ = self.model(torch.from_numpy(self.field.flatten())).detach().numpy()
+        pos = np.unravel_index(returns_.argmax(), FIELD_SIZE)
         self.last_move = pos
         return pos
     # called after the move was made
     def give(self, response):
-        self.field = update_visible_ships(self.field, self.last_move, response)
+        update_visible_ships(self.field, self.last_move, response)
     # called at the end of the game
     def finish(self, result):
         pass

@@ -16,8 +16,8 @@ def trace_game(game):
 
         response = state.response
         if response in (Msg.HIT, Msg.SUNK, Msg.MISS):
-            v = probed.get(player_id, np.zeros((10, 10), np.uint8))
-            probed[player_id] = update_visible_ships(v, state.pos, state.response)
+            probed[player_id] = probed.get(player_id, np.zeros((10, 10), np.uint8))
+            update_visible_ships(probed[player_id], state.pos, state.response)
         yield states, probed
 
         if state.response in (Msg.YOU_WON, Msg.YOU_LOST):
@@ -124,7 +124,7 @@ def run_in_qt(game, dt):
 
 if __name__ == "__main__":
     from battleship import DefaultRules, battle, mini_battle, place_ships
-    from battleship import RandomAgent, SmartAgent
+    from battleship import RandomAgent, SmartAgent, SuperAgent
 
     a1 = RandomAgent("ships/00000000.pos")
     a2 = SmartAgent("ships/00000118.pos")
