@@ -1,4 +1,4 @@
-from battleship import Msg, update_visible_ships
+from battleship import Msg, update_visible_ships, load_ships
 import skimage
 
 import numpy as np
@@ -126,9 +126,9 @@ if __name__ == "__main__":
     from battleship import DefaultRules, battle, mini_battle, place_ships
     from battleship import RandomAgent, SmartAgent, SuperAgent
 
-    a1 = RandomAgent("ships/00000000.pos")
-    a2 = SmartAgent("ships/00000118.pos")
-    _, s2 = place_ships(a2.ships())
+    a1 = RandomAgent(load_ships("ships/00000000.pos"))
+    a2 = SmartAgent(load_ships("ships/00000118.pos"))
+    _, s2 = place_ships(a2.ships)
 
     game = battle((a1, a2), DefaultRules())
     mini_game = mini_battle(a2, s2, DefaultRules())

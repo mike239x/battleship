@@ -1,6 +1,6 @@
 from Ui import trace_game
 from pickle import dump, load
-from battleship import mini_battle
+from battleship import mini_battle, load_ships
 
 filename_fmt = "{}/run-{:>08}.trc"
 
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     DefaultRules.max_turns = 100
 
     def get_agent():
-        return RandomAgent("ships/00000118.pos")
+        return RandomAgent(load_ships("ships/00000118.pos"))
 
     a = get_agent()
     _, s = place_ships(a.ships())

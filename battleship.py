@@ -81,6 +81,18 @@ def place_ships(ships):
         k += 1
     return (success, re)
 
+def load_ships(filename):
+    with open(filename, 'rb') as f:
+        ships = pickle.load(f)
+    return ships
+
+def save_ships(filename):
+    with open(self.filename, 'wb') as f:
+        ships = pickle.dump(f)
+
+def load_random_ships():
+    ... # TODO
+
 def probe(pos, probed, field):
     '''probes a position `pos` of the opponent's `field`.
     previous probed positions are provided in by `probed`.
@@ -102,17 +114,11 @@ def probe(pos, probed, field):
 
 class Agent:
     '''a template for an agent class'''
-    # generate a ship placement
-    def ships(self):
-        raise NotImplementedError
     # make a move:
     def make_a_move(self):
         raise NotImplementedError
     # called after the move was made
     def give(self, response):
-        raise NotImplementedError
-    # called at the end of the game
-    def finish(self, result):
         raise NotImplementedError
 
 class Dict(dict):
@@ -143,10 +149,10 @@ def mini_battle(player, field, rules):
 def battle(players, rules):
     '''play the game between two agents'''
     games = []
-    success, field = place_ships(players[0].ships())
+    success, field = place_ships(players[0].ships)
     if success:
         games.append(mini_battle(players[1], field, rules))
-    success, ships = place_ships(players[1].ships())
+    success, ships = place_ships(players[1].ships)
     if success:
         games.append(mini_battle(players[0], field, rules ))
     finished = [False] * len(games)
@@ -164,73 +170,66 @@ def battle(players, rules):
             yield Dict(current_player_id = cur, **progress)
             if progress.response not in [Msg.HIT, Msg.SUNK]:
                 cur = (cur+1) % len(games)
-    players[cur].finish(Msg.WON)
-    players[1-cur].finish(Msg.LOST)
     while True:
         yield None
 
 ######################################################################################################################
 # networking
 
-class RemoteAgent(Agent):
-    def __init__(self, socket):
-        self.socket = socket
-    # generate a ship placement
-    def ships(self):
-        self.socket.send(pickle.dumps(Msg.PLACE_SHIPS))
-        ships = pickle.loads(self.socket.recv())
-        return ships
-    # make a move:
-    def make_a_move(self):
-        self.socket.send(pickle.dumps(Msg.YOUR_TURN))
-        move = pickle.loads(self.recv())
-        return move
-    # called after the move was made
-    def give(self, response):
-        self.socket.send(pickle.dumps(response))
-    # called at the end of the game
-    def finish(self, result):
-        self.socket.send(pickle.dumps(response))
+#  class RemoteAgent(Agent):
+#      def __init__(self, socket):
+#          self.socket = socket
+#      # generate a ship placement
+#      def ships(self):
+#          self.socket.send(pickle.dumps(Msg.PLACE_SHIPS))
+#          ships = pickle.loads(self.socket.recv())
+#          return ships
+#      # make a move:
+#      def make_a_move(self):
+#          self.socket.send(pickle.dumps(Msg.YOUR_TURN))
+#          move = pickle.loads(self.recv())
+#          return move
+#      # called after the move was made
+#      def give(self, response):
+#          self.socket.send(pickle.dumps(response))
+#      # called at the end of the game
+#      def finish(self, result):
+#          self.socket.send(pickle.dumps(response))
 
-def play_remotely(agent, port):
-    socket = zmq.Context().socket(zmq.PAIR)
-    socket.connect(port)
-    while True:
-        msg = socket.recv()
-        if msg == Msg.PLACE_SHIPS:
-            ships = agent.ships()
-            socket.send(pickle.dumps(ships))
-        elif msg == Msg.YOUR_TURN:
-            pos = agent.make_a_move()
-            socket.send(pickle.dumps(pos))
-            msg = socket.recv()
-            response = pickle.loads(msg)
-            agent.give(response)
-            socket.send(Msg.CONFIRMED)
-        elif msg == Msg.YOU_LOST:
-            socket.send(Msg.CONFIRMED)
-            break
-        elif msg == Msg.YOU_WON:
-            socket.send(Msg.CONFIRMED)
-            break
+#  def play_remotely(agent, port):
+#      socket = zmq.Context().socket(zmq.PAIR)
+#      socket.connect(port)
+#      while True:
+#          msg = socket.recv()
+#          if msg == Msg.PLACE_SHIPS:
+#              ships = agent.ships()
+#              socket.send(pickle.dumps(ships))
+#          elif msg == Msg.YOUR_TURN:
+#              pos = agent.make_a_move()
+#              socket.send(pickle.dumps(pos))
+#              msg = socket.recv()
+#              response = pickle.loads(msg)
+#              agent.give(response)
+#              socket.send(Msg.CONFIRMED)
+#          elif msg == Msg.YOU_LOST:
+#              socket.send(Msg.CONFIRMED)
+#              break
+#          elif msg == Msg.YOU_WON:
+#              socket.send(Msg.CONFIRMED)
+#              break
 
 ######################################################################################################################
 # misc
 
 class SmartAgent(Agent):
     '''a sophisticated algorithm'''
-    def __init__(self, filename):
+    def __init__(self, ships = None):
         self.field = np.zeros(FIELD_SIZE)
         self.ships_tiles_uncovered = 0
         self.anchor = (-1,-1)
         self.dir = (0,0)
         self.good_moves = []
-        self.filename = filename
-    # generate a ship placement
-    def ships(self):
-        with open(self.filename, 'rb') as f:
-            ships = pickle.load(f)
-        return ships
+        self.ships = ships
     # make a move:
     def make_a_move(self):
         if self.ships_tiles_uncovered == 0:
@@ -295,23 +294,13 @@ class SmartAgent(Agent):
                 self.dir = (0,0)
             self.field[y,x] = 1
             self.ships_tiles_uncovered += 1
-    # called at the end of the game
-    def finish(self, result):
-        pass
 
 class RandomAgent(Agent):
     '''a not so sophisticated algorithm'''
-    def __init__(self, filename):
+    def __init__(self, ships = None):
         self.field = np.zeros(FIELD_SIZE)
         self.good_moves = []
-        self.filename = filename
-
-    # generate a ship placement
-    def ships(self):
-        with open(self.filename, 'rb') as f:
-            ships = pickle.load(f)
-        return ships
-
+        self.ships = ships
     # make a move:
     def make_a_move(self):
         # search for another ship
@@ -321,10 +310,8 @@ class RandomAgent(Agent):
             y = randint(0, FIELD_HEIGHT - 1)
             if self.field[y,x] == 0:
                 break
-
         self.good_moves.append((x,y))
         return self.good_moves[-1]
-
     # called after the move was made
     def give(self, response):
         x,y = self.good_moves[-1]
@@ -333,10 +320,6 @@ class RandomAgent(Agent):
         if response == Msg.SUNK or response == Msg.HIT:
             self.field[y,x] = 1
         self.good_moves.pop()
-
-    # called at the end of the game
-    def finish(self, result):
-        pass
 
 def update_visible_ships(visible, pos, response):
     x,y = pos
@@ -380,29 +363,20 @@ def sample_Q(minigame, callback, discount = 0.02):
 
 class SuperAgent(Agent):
     '''an agent driven by inhuman ambitions'''
-    def __init__(self, filename):
+    def __init__(self, ships = None):
         self.field = np.zeros(FIELD_SIZE, dtype = np.float32)
-        self.filename = filename
+        self.ships = ships
         n_in, n_h, n_out = 100, 40, 100
         self.model = nn.Sequential(
                          nn.Linear(n_in, n_h),
                          nn.ReLU(),
                          nn.Linear(n_h, n_out),
                          nn.ReLU())
-
     def model_load(self, path):
         self.model.load_state_dict(torch.load(path))
         self.model.eval()
-
     def model_save(self, path):
         torch.save(self.model.state_dict(), path)
-
-    # generate a ship placement
-    def ships(self):
-        with open(self.filename, 'rb') as f:
-            ships = pickle.load(f)
-        return ships
-
     # train agent
     def train(self, field, action, return_):
         returns_ = self.model(torch.from_numpy(field.flatten().astype(np.float32)))
@@ -413,7 +387,6 @@ class SuperAgent(Agent):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
     # make a move:
     def make_a_move(self):
         returns_ = self.model(torch.from_numpy(self.field.flatten())).detach().numpy()
@@ -423,7 +396,4 @@ class SuperAgent(Agent):
     # called after the move was made
     def give(self, response):
         update_visible_ships(self.field, self.last_move, response)
-    # called at the end of the game
-    def finish(self, result):
-        pass
 
