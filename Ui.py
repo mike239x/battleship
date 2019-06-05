@@ -3,6 +3,7 @@ import skimage
 
 import numpy as np
 
+
 def trace_game(game):
     states = {}
     probed = {}
@@ -16,12 +17,14 @@ def trace_game(game):
 
         response = state.response
         if response in (Msg.HIT, Msg.SUNK, Msg.MISS):
-            probed[player_id] = probed.get(player_id, np.zeros((10, 10), np.uint8))
+            probed[player_id] = probed.get(
+                player_id, np.zeros((10, 10), np.uint8))
             update_visible_ships(probed[player_id], state.pos, state.response)
         yield states, probed
 
         if state.response in (Msg.YOU_WON, Msg.YOU_LOST):
             break
+
 
 def run_on_console(game, dt):
     from time import sleep
@@ -58,6 +61,7 @@ def run_on_console(game, dt):
         sleep(dt/1000)
     finish_game()
 
+
 def run_in_qt(game, dt):
     from time import sleep
     from PyQt5.QtWidgets import QApplication
@@ -93,9 +97,10 @@ def run_in_qt(game, dt):
     def plot_fields(probed):
         for p, field in probed.items():
             field = field*80
-            img = QImage(field.repeat(4).data, field.shape[1], field.shape[0], QImage.Format_RGB32)
+            img = QImage(field.repeat(4).data,
+                         field.shape[1], field.shape[0], QImage.Format_RGB32)
             pix = QPixmap(img)
-            pix = pix.scaled(300,300)
+            pix = pix.scaled(300, 300)
             if p == 0:
                 p1.setPixmap(pix)
             if p == 1:
@@ -126,25 +131,60 @@ if __name__ == "__main__":
     from battleship import DefaultRules, battle, mini_battle, place_ships
     from battleship import RandomAgent, SmartAgent, SuperAgent
 
-    a1 = RandomAgent(load_ships("ships/00000000.pos"))
-    a2 = SmartAgent(load_ships("ships/00000118.pos"))
-    _, s2 = place_ships(a2.ships)
-
-    game = battle((a1, a2), DefaultRules())
-    mini_game = mini_battle(a2, s2, DefaultRules())
-
-
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--qt", action="store_true", default=False, help="Use qt ui")
-    parser.add_argument("--delay", type=int, default=500, help="Delay between actions [ms]")
-    parser.add_argument("--battletype", choices=["mini", "normal"], default="mini", help="Use mini battle as default")
+    parser.add_argument("--qt", action="store_true",
+                        default=False, help="Use qt ui")
+    parser.add_argument("--delay", type=int, default=500,
+                        help="Delay between actions [ms]")
+    parser.add_argument("--agent1",
+                        choices=["super",
+                                 "smart",
+                                 "random"],
+                        default="random",
+                        required=True)
+    parser.add_argument("--agent2",
+                        choices=["super",
+                                 "smart",
+                                 "random"]
+                        )
+    parser.add_argument("--ships", nargs="+",
+                        help="Provide paths to ship files", default=[])
     args = parser.parse_args()
 
-    our_game = game if args.battletype == "normal" else mini_game
+    if len(args.ships) < 1:
+        print("Cannot find ship files")
+        exit(1)
+    print(args.ships)
+    ships1 = load_ships(args.ships[0])
+    if len(args.ships) == 1:
+        ships2 = ships1
+    else:
+        ships2 = load_ships(args.ships[1])
+
+    if args.agent1 == "super":
+        agent = SuperAgent()
+    elif args.agent1 == "smart":
+        agent = SmartAgent()
+    elif args.agent1 == "random":
+        agent = RandomAgent()
+
+    if args.agent2 is None:
+        game = mini_battle(agent, ships1)
+    elif args.agent2 == "super":
+        agent2 = SuperAgent()
+        game = battle((agent, agent2))
+    elif args.agent2 == "smart":
+        agent2 = SmartAgent()
+        game = battle((agent, agent2))
+    elif args.agent2 == "random":
+        agent2 = RandomAgent()
+        game = battle((agent, agent2))
+
+    agent.ships = ships1
+    agent2.ships = ships2
 
     if args.qt:
-        run_in_qt(our_game, args.delay)
+        run_in_qt(game, args.delay)
     else:
-        run_on_console(our_game, args.delay)
-
+        run_on_console(game, args.delay)

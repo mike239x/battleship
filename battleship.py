@@ -152,7 +152,7 @@ def battle(players, rules = DefaultRules()):
     success, field = place_ships(players[0].ships)
     if success:
         games.append(mini_battle(players[1], field, rules))
-    success, ships = place_ships(players[1].ships)
+    success, field = place_ships(players[1].ships)
     if success:
         games.append(mini_battle(players[0], field, rules ))
     finished = [False] * len(games)
