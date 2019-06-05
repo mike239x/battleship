@@ -350,14 +350,20 @@ def update_visible_ships(visible, pos, response):
 
 def sample_Q(minigame, callback, discount = 0.02):
     field = np.zeros(FIELD_SIZE)
-    fields = [field]
+    fields = [deepcopy(field)]
     actions = []
     rewards = []
+    reward_ = {}
+    reward_[Msg.SUNK] = 1
+    reward_[Msg.HIT] = 1
+    reward_[Msg.MISS] = 0
+    reward_[Msg.REPEATING_MOVE] = -10
+    reward_[Msg.ILLEGAL_MOVE] = -100
     for progress in minigame:
-        if progress.response in ( Msg.YOU_WON, Msg, YOU_LOST ):
+        if progress.response in ( Msg.YOU_WON, Msg.YOU_LOST ):
             break
         field = update_visible_ships(field, progress.pos, progress.response)
-        fields.append(field)
+        fields.append(deepcopy(field))
         actions.append(progress.pos)
         rewards.append(reward_[progress.response])
     fields.pop()
@@ -370,4 +376,28 @@ def sample_Q(minigame, callback, discount = 0.02):
         return_ += reward
         callback(field, action, return_)
 
+class SuperAgent(Agent):
+    '''an agent driven by inhuman ambitions'''
+    def __init__(self, filename):
+        self.field = np.zeros(FIELD_SIZE)
+        self.filename = filename
+        self.model = ... # TODO 
+    # generate a ship placement
+    def ships(self):
+        with open(self.filename, 'rb') as f:
+            ships = pickle.load(f)
+        return ships
+    # make a move:
+    def make_a_move(self):
+        # TODO
+        returns_ = self.model(torch.from_numpy(self.field)).numpy()
+        pos = np.unravel_index(a.argmax(), a.shape)
+        self.last_move = pos
+        return pos
+    # called after the move was made
+    def give(self, response):
+        self.field = update_visible_ships(self.field, self.last_move, response)
+    # called at the end of the game
+    def finish(self, result):
+        pass
 
