@@ -126,7 +126,7 @@ class Dict(dict):
         super().__init__(kwargs)
         self.__dict__ = self
 
-def mini_battle(player, field, rules):
+def mini_battle(player, field, rules = DefaultRules()):
     probed = np.zeros(FIELD_SIZE, dtype = np.bool)
     for turn_num in count():
         pos = player.make_a_move()
@@ -146,7 +146,7 @@ def mini_battle(player, field, rules):
     while True:
         yield None
 
-def battle(players, rules):
+def battle(players, rules = DefaultRules()):
     '''play the game between two agents'''
     games = []
     success, field = place_ships(players[0].ships)
