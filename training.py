@@ -44,4 +44,3 @@ while True:
     agent.verbose = False
     agent.field *= 0
     agent.model_save('superagent_weights')
-
