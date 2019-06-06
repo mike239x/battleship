@@ -36,11 +36,12 @@ class Msg(Enum):
     YOU_WON = 9
 
 class DefaultRules:
-    illegal_moves = [Msg.ILLEGAL_MOVE, Msg.REPEATING_MOVE]
-    max_turns = 100
+    def __init__(self):
+        self.illegal_moves = [Msg.ILLEGAL_MOVE, Msg.REPEATING_MOVE]
+        self.max_turns = 100
 
 ######################################################################################################################
-# game machanics
+# game mechanics
 
 def place_ships(ships):
     '''place the ships on the battlefield
@@ -91,7 +92,9 @@ def save_ships(filename):
         ships = pickle.dump(f)
 
 def load_random_ships():
-    ... # TODO
+    r = randint(0, 387)
+    filename = "ships/{:>08}.pos".format(r)
+    return load_ships(filename)
 
 def probe(pos, probed, field):
     '''probes a position `pos` of the opponent's `field`.
@@ -368,9 +371,11 @@ class SuperAgent(Agent):
         self.ships = ships
         self.model = nn.Sequential(
                          nn.Linear(100, 100),
-                         nn.Sigmoid())
+                         nn.Sigmoid(),
+                         nn.Linear(100, 100))
         self.verbose = False
         self.exploration_rate = 0.0
+        self.learning_rate = 0.1
     def model_load(self, path):
         self.model.load_state_dict(torch.load(path))
         self.model.eval()
@@ -382,7 +387,7 @@ class SuperAgent(Agent):
         x, y = action
         criterion = torch.nn.MSELoss()
         loss = criterion(returns_[y*FIELD_WIDTH + x], torch.tensor(return_, dtype = torch.float32))
-        optimizer = torch.optim.SGD(self.model.parameters(), lr=0.1)
+        optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()

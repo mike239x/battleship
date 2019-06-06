@@ -3,7 +3,7 @@ from Ui import run_on_console
 
 agent = SuperAgent()
 
-success, field = place_ships(load_ships("ships/00000042.pos"))
+_, field = place_ships(load_ships("ships/00000042.pos"))
 
 def callback(*args):
     agent.train(*args)
@@ -22,18 +22,23 @@ def store_params(filename):
     with open(filename, 'w') as f:
         f.write(str(agent.model.state_dict()))
 
-agent.exploration_rate = 0.5
-for i in range(n):
-    if i % (n//10) == 0:
-        agent.verbose = True
-        print()
-        g = mini_battle(agent, field)
-        run(g)
-        agent.exploration_rate /= 1.4
-        agent.verbose = False
-        agent.field *= 0
-    g = mini_battle(agent, field)
-    sample_Q(g, callback, discount = 0.5)
-    agent.field *= 0
+soft_rules = DefaultRules()
+soft_rules.illegal_moves.pop()
 
-agent.model_save('superagent_weights')
+agent.learning_rate = 0.1
+while True:
+    for _ in range(10**2):
+        agent.exploration_rate = 0.5
+        g = mini_battle(agent, field, soft_rules)
+        sample_Q(g, callback, discount = 0.5)
+        agent.field *= 0
+    agent.exploration_rate = 0.0
+    agent.verbose = True
+    print()
+    g = mini_battle(agent, field)
+    run(g)
+    agent.verbose = False
+    agent.field *= 0
+    agent.model_save('superagent_weights')
+    #  _, field = place_ships(load_random_ships())
+
