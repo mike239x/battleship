@@ -18,7 +18,7 @@ from torch import nn
 # some constants
 
 #FIELD_SIZE = (10,10) # width, height
-FIELD_SIZE = (3,3) # width, height
+FIELD_SIZE = (4,4) # width, height
 FIELD_HEIGHT, FIELD_WIDTH = FIELD_SIZE
 #SHIP_SIZES = [5,4,4,3,3,3,2,2,2,2]
 SHIP_SIZES = [2,2]
@@ -377,7 +377,7 @@ class SuperAgent(Agent):
         self.field = np.zeros(FIELD_SIZE, dtype = np.float32)
         self.ships = ships
         self.model = nn.Sequential(
-                         nn.Linear(9, 9),
+                         nn.Linear(16, 16),
                          nn.Sigmoid())
         self.verbose = False
         self.exploration_rate = 0.0
