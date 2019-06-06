@@ -18,6 +18,7 @@ def run(g):
         if p == None:
             break
         print(p)
+
 def store_params(filename):
     with open(filename, 'w') as f:
         f.write(str(agent.model.state_dict()))
@@ -29,16 +30,18 @@ agent.learning_rate = 0.1
 while True:
     for _ in range(10**2):
         agent.exploration_rate = 0.5
+        _, field = place_ships(load_random_ships())
         g = mini_battle(agent, field, soft_rules)
         sample_Q(g, callback, discount = 0.5)
         agent.field *= 0
+
     agent.exploration_rate = 0.0
     agent.verbose = True
     print()
+    _, field = place_ships(load_random_ships())
     g = mini_battle(agent, field)
     run(g)
     agent.verbose = False
     agent.field *= 0
     agent.model_save('superagent_weights')
-    #  _, field = place_ships(load_random_ships())
 

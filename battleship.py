@@ -17,9 +17,11 @@ from torch import nn
 ######################################################################################################################
 # some constants
 
-FIELD_SIZE = (10,10) # width, height
+#FIELD_SIZE = (10,10) # width, height
+FIELD_SIZE = (3,3) # width, height
 FIELD_HEIGHT, FIELD_WIDTH = FIELD_SIZE
-SHIP_SIZES = [5,4,4,3,3,3,2,2,2,2]
+#SHIP_SIZES = [5,4,4,3,3,3,2,2,2,2]
+SHIP_SIZES = [2,2]
 
 class Msg(Enum):
     ILLEGAL_MOVE = -2
@@ -92,7 +94,8 @@ def save_ships(filename):
         ships = pickle.dump(f)
 
 def load_random_ships():
-    r = randint(0, 387)
+    #r = randint(0, 387)
+    r = randint(0, 99)
     filename = "ships/{:>08}.pos".format(r)
     return load_ships(filename)
 
@@ -346,14 +349,18 @@ def sample_Q(minigame, callback, discount = 0.02):
     reward_[Msg.HIT] = 1
     reward_[Msg.MISS] = 0
     reward_[Msg.REPEATING_MOVE] = -1
+    reward_[Msg.YOU_WON] = 3
+    reward_[Msg.YOU_LOST] = -3
+    reward_[Msg.REPEATING_MOVE] = -1
     # reward_[Msg.ILLEGAL_MOVE] = -100
     for progress in minigame:
-        if progress.response in ( Msg.YOU_WON, Msg.YOU_LOST ):
-            break
         update_visible_ships(field, progress.pos, progress.response)
         fields.append(deepcopy(field))
         actions.append(progress.pos)
         rewards.append(reward_[progress.response])
+
+        if progress.response in ( Msg.YOU_WON, Msg.YOU_LOST ):
+            break
     fields.pop()
     return_ = 0
     actions.reverse()
@@ -370,9 +377,8 @@ class SuperAgent(Agent):
         self.field = np.zeros(FIELD_SIZE, dtype = np.float32)
         self.ships = ships
         self.model = nn.Sequential(
-                         nn.Linear(100, 100),
-                         nn.Sigmoid(),
-                         nn.Linear(100, 100))
+                         nn.Linear(9, 9),
+                         nn.Sigmoid())
         self.verbose = False
         self.exploration_rate = 0.0
         self.learning_rate = 0.1
