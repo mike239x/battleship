@@ -4,7 +4,6 @@ import skimage
 
 import numpy as np
 
-
 def trace_game(game):
     states = {}
     probed = {}

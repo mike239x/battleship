@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 **/*.swp
->>>>>>> A commmit
 poetry.lock
 
 # Byte-compiled / optimized / DLL files
