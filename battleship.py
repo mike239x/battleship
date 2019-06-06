@@ -337,7 +337,7 @@ def update_visible_ships(visible, pos, response):
     return visible
 
 def sample_Q(minigame, callback, discount = 0.02):
-    field = np.zeros(FIELD_SIZE)
+    field = np.zeros(FIELD_SIZE, dtype = np.float32)
     fields = [deepcopy(field)]
     actions = []
     rewards = []
@@ -369,10 +369,18 @@ class SuperAgent(Agent):
     def __init__(self, ships = None):
         self.field = np.zeros(FIELD_SIZE, dtype = np.float32)
         self.ships = ships
-        self.model = nn.Sequential(
-                         nn.Linear(100, 100),
-                         nn.Sigmoid(),
-                         nn.Linear(100, 100))
+        class Net(nn.Module):
+            def __init__(self):
+                super(Net, self).__init__()
+                self.conv1 = nn.Conv2d(1, 6, 3, padding = 1)
+                self.conv2 = nn.Conv2d(6, 1, 3, padding = 1)
+            def forward(self, x):
+                x = x.view((1,1,*FIELD_SIZE))
+                x = torch.sigmoid(self.conv1(x))
+                x = self.conv2(x)
+                x = x.view(-1)
+                return x
+        self.model = Net()
         self.verbose = False
         self.exploration_rate = 0.0
         self.learning_rate = 0.1
@@ -383,7 +391,7 @@ class SuperAgent(Agent):
         torch.save(self.model.state_dict(), path)
     # train agent
     def train(self, field, action, return_):
-        returns_ = self.model(torch.from_numpy(field.flatten().astype(np.float32)))
+        returns_ = self.model(torch.from_numpy(field.flatten()))
         x, y = action
         criterion = torch.nn.MSELoss()
         loss = criterion(returns_[y*FIELD_WIDTH + x], torch.tensor(return_, dtype = torch.float32))
