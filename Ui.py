@@ -1,4 +1,5 @@
 from battleship import Msg, update_visible_ships, load_ships
+from battleship import FIELD_HEIGHT, FIELD_WIDTH, FIELD_SIZE
 import skimage
 
 import numpy as np
@@ -18,7 +19,7 @@ def trace_game(game):
         response = state.response
         if response in (Msg.HIT, Msg.SUNK, Msg.MISS):
             probed[player_id] = probed.get(
-                player_id, np.zeros((10, 10), np.uint8))
+                player_id, np.zeros(FIELD_SIZE, np.uint8))
             update_visible_ships(probed[player_id], state.pos, state.response)
         yield states, probed
 
@@ -29,7 +30,7 @@ def trace_game(game):
 def run_on_console(game, dt):
     from time import sleep
 
-    def get_console_printer(field_size=10):
+    def get_console_printer(field_size=FIELD_HEIGHT):
         active_players = [0]
 
         def clear_players(number_of_players):
