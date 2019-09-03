@@ -15,6 +15,7 @@ PyQt5 = "^5.12"
 torch = "1.1.0"
 torchvision = "^0.3.0"
 pywavelets = "^1.0"
+tensorboard = "=1.14"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.0"
